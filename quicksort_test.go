@@ -29,6 +29,7 @@ func TestSeq(t *testing.T) {
 	}
 }
 
+// Тест на случайных массивах последовательной сортировкой
 func TestSeqRandom(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 
@@ -50,6 +51,29 @@ func TestSeqRandom(t *testing.T) {
 				if a[i] != expected[i] {
 					t.Fatalf("n=%d, iteration=%d, index=%d", n, k, i)
 				}
+			}
+		}
+	}
+}
+
+// Тест на случайных массивах параллельной сортировкой
+func TestPar(t *testing.T) {
+	rng := rand.New(rand.NewSource(42))
+
+	for _, n := range []int{0, 1, 2, 10, 100, 1000, 100000} {
+		a := make([]int, n)
+		for i := range a {
+			a[i] = rng.Intn(1000) - 500
+		}
+
+		expected := append([]int(nil), a...)
+		sort.Ints(expected)
+
+		Par(a)
+
+		for i := range a {
+			if a[i] != expected[i] {
+				t.Fatalf("n=%d, index=%d", n, i)
 			}
 		}
 	}
