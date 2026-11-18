@@ -1,12 +1,14 @@
 package quicksort
 
+import "math/rand/v2"
+
 func Seq(a []int) {
 	if len(a) < 2 {
 		return
 	}
 
 	i, j := 0, len(a)-1
-	pivot := a[len(a)/2]
+	pivot := a[rand.IntN(len(a))]
 
 	for i <= j {
 		for a[i] < pivot {
