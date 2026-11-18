@@ -68,12 +68,10 @@ func par(a []int, p int) {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		par(a[:j+1], p/2)
-	}()
+	})
 
 	par(a[i:], p-p/2)
 	wg.Wait()
