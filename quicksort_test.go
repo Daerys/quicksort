@@ -2,6 +2,7 @@ package quicksort_test
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"runtime"
 	"slices"
@@ -16,8 +17,8 @@ var algorithms = []struct {
 	name string
 	sort func([]int)
 }{
-	{"Seq", quicksort.Seq},
-	{"Par", quicksort.Par},
+	{"Seq", quicksort.Seq[int]},
+	{"Par", quicksort.Par[int]},
 }
 
 func checkSort(t *testing.T, input []int) {
@@ -256,4 +257,110 @@ func FuzzSeqPar(f *testing.F) {
 		}
 		checkSort(t, a)
 	})
+}
+
+func TestParallelBoundaries(t *testing.T) {
+	sizes := []int{
+		8191, 8192, 8193,
+		262143, 262144, 262145,
+	}
+
+	rng := rand.New(rand.NewSource(42))
+
+	for _, n := range sizes {
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			a := make([]int, n)
+			for i := range a {
+				a[i] = rng.Intn(1000)
+			}
+			checkSort(t, a)
+		})
+	}
+}
+
+func TestFloatValues(t *testing.T) {
+	for _, n := range []int{12, 300_000} {
+		input := make([]float64, n)
+		for i := range input {
+			input[i] = float64(i%101 - 50)
+		}
+		input[0] = math.NaN()
+		input[n/2] = math.Inf(-1)
+		input[n-2] = math.Inf(1)
+		input[n-1] = math.NaN()
+
+		want := slices.Clone(input)
+		sort.Float64s(want)
+
+		for _, tc := range []struct {
+			name string
+			sort func([]float64)
+		}{
+			{"Seq", quicksort.Seq[float64]},
+			{"Par", quicksort.Par[float64]},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				got := slices.Clone(input)
+				tc.sort(got)
+				for i := range want {
+					if math.IsNaN(got[i]) && math.IsNaN(want[i]) {
+						continue
+					}
+					if got[i] != want[i] {
+						t.Fatalf("n=%d, index=%d: got %v, want %v", n, i, got[i], want[i])
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestStringValues(t *testing.T) {
+	input := []string{"z", "", "aa", "a", "z", "ä", "A", "aa"}
+	want := slices.Clone(input)
+	sort.Strings(want)
+	for _, tc := range []struct {
+		name string
+		sort func([]string)
+	}{
+		{"Seq", quicksort.Seq[string]},
+		{"Par", quicksort.Par[string]},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := slices.Clone(input)
+			tc.sort(got)
+			if !slices.Equal(got, want) {
+				t.Fatalf("got %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+// benchmarks
+func BenchmarkSeq(b *testing.B) {
+	benchmarkSort(b, quicksort.Seq[int])
+}
+
+func BenchmarkPar(b *testing.B) {
+	benchmarkSort(b, quicksort.Par[int])
+}
+
+func benchmarkSort(b *testing.B, sortFn func([]int)) {
+	rng := rand.New(rand.NewSource(42))
+	original := make([]int, 100_000)
+
+	for i := range original {
+		original[i] = rng.Intn(1_000_000)
+	}
+
+	a := make([]int, len(original))
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		copy(a, original)
+		b.StartTimer()
+
+		sortFn(a)
+	}
 }
